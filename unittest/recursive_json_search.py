@@ -1,28 +1,33 @@
-from test_data import *
+"""Recursive JSON search with role-based access control."""
 
-def json_search(key, input_object):
-    ret_val = []
+from policy import POLICY
+from test_data import data
+
+
+def json_search(key, input_object, role=None):
+    """Return all ``{key: value}`` matches visible to ``role``.
+
+    Keys listed in ``POLICY`` are protected. Access is denied by default when
+    the role is missing, unknown, or not explicitly allowed for the key.
+    """
+    if key in POLICY and role not in POLICY[key]:
+        return []
+
+    results = []
 
     if isinstance(input_object, dict):
-        for k, v in input_object.items():
-            if k == key:
-                temp = {k: v}
-                ret_val.append(temp)
+        for current_key, value in input_object.items():
+            if current_key == key:
+                results.append({current_key: value})
+            if isinstance(value, (dict, list)):
+                results.extend(json_search(key, value, role))
+    elif isinstance(input_object, list):
+        for item in input_object:
+            if isinstance(item, (dict, list)):
+                results.extend(json_search(key, item, role))
 
-            if isinstance(v, dict):
-                ret_val.extend(json_search(key, v))
-
-            elif isinstance(v, list):
-                for item in v:
-                    if not isinstance(item, (str, int)):
-                        ret_val.extend(json_search(key, item))
-
-    else:
-        for val in input_object:
-            if not isinstance(val, (str, int)):
-                ret_val.extend(json_search(key, val))
-
-    return ret_val
+    return results
 
 
-print(json_search("issueSummary", data))# Fill the Python code in this file
+if __name__ == "__main__":
+    print(json_search("issueSummary", data, role="viewer"))
